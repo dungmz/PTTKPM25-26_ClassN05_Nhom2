@@ -1,0 +1,44 @@
+name: jobconnect_vn
+description: Nền tảng việc làm thông minh cho sinh viên Việt Nam
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  provider: ^6.1.1
+
+  # HTTP
+  dio: ^5.4.1
+
+  # Local storage
+  shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.0.0
+
+  # UI
+  google_fonts: ^6.1.0
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+  lottie: ^2.7.0
+
+  # File picker
+  file_picker: ^11.0.2
+  image_picker: ^1.0.7
+
+  # Utils
+  intl: ^0.19.0
+  url_launcher: ^6.2.4
+
+  # Google Sign In
+  google_sign_in: ^6.2.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/animations/
