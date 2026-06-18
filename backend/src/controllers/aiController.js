@@ -206,6 +206,46 @@ const getRecommendedCandidates = async (req, res) => {
   }
 };
 
+const analyzeJobFit = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const userResult = await query(
+      `SELECT id, name, skills, location, experience, major, university, bio, cv_url, free_time
+       FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+    const user = userResult.rows[0];
+
+    const jobResult = await query(
+      `SELECT j.*, u.name AS employer_name, u.company_name, u.company_logo,
+              u.company_desc, u.company_website, u.company_field
+       FROM jobs j
+       JOIN users u ON j.user_id = u.id
+       WHERE j.id = $1 AND j.is_active = TRUE`,
+      [id]
+    );
+
+    if (!jobResult.rows.length) {
+      return res.status(404).json({ error: 'Khong tim thay cong viec' });
+    }
+
+    const analyzedJob = buildRecommendation(user, jobResult.rows[0]);
+    return res.json({
+      job: analyzedJob,
+      profile: {
+        skills: asArray(user.skills),
+        major: user.major,
+        location: user.location,
+        has_cv: Boolean(user.cv_url),
+      },
+    });
+  } catch (err) {
+    console.error('[AI] analyzeJobFit error:', err.message);
+    res.status(500).json({ error: 'Loi server' });
+  }
+};
+
 const buildAIInstructions = (prompt, context = {}, user = {}) => {
   const parts = [
     'Ban la tro ly AI cua JobConnect VN.',
@@ -385,6 +425,7 @@ const analyzeProfile = async (req, res) => {
 module.exports = {
   getRecommendedJobs,
   getRecommendedCandidates,
+  analyzeJobFit,
   analyzeProfile,
   chatWithAI,
 };

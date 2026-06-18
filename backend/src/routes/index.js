@@ -49,6 +49,7 @@ router.put ('/applications/:id/status', verifyToken, requireRole('employer'),
 // ── AI ────────────────────────────────────────────────────────────────────────
 router.get('/recommended-jobs',       verifyToken, requireRole('student'), ai.getRecommendedJobs);
 router.get('/recommended-candidates', verifyToken, requireRole('employer'), ai.getRecommendedCandidates);
+router.get('/ai/jobs/:id/analysis',   verifyToken, requireRole('student'), ai.analyzeJobFit);
 router.get('/profile-analysis',       verifyToken, ai.analyzeProfile);
 router.post('/ai/chat',               verifyToken, ai.chatWithAI);
 

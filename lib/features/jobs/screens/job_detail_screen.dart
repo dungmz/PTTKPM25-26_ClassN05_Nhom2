@@ -22,7 +22,10 @@ class JobDetailScreen extends StatefulWidget {
 
 class _JobDetailScreenState extends State<JobDetailScreen> {
   JobModel? _job;
+  JobModel? _aiJob;
   bool _loading = true;
+  bool _aiLoading = false;
+  String? _aiError;
   bool _saved = false;
   final _coverCtrl = TextEditingController();
 
@@ -42,11 +45,36 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   Future<void> _loadDetail() async {
     final job = await context.read<JobsProvider>().getJobDetail(widget.jobId);
-    if (mounted)
+    if (mounted) {
       setState(() {
         _job = job ?? _job;
         _loading = false;
       });
+      final user = context.read<AuthProvider>().user;
+      if (user?.role == 'student') {
+        _loadAiAnalysis();
+      }
+    }
+  }
+
+  Future<void> _loadAiAnalysis() async {
+    if (_aiLoading) return;
+    setState(() {
+      _aiLoading = true;
+      _aiError = null;
+    });
+
+    final analyzedJob =
+        await context.read<JobsProvider>().getJobAnalysis(widget.jobId);
+    if (!mounted) return;
+
+    setState(() {
+      _aiJob = analyzedJob;
+      _aiLoading = false;
+      _aiError = analyzedJob == null
+          ? (context.read<JobsProvider>().error ?? 'Không thể phân tích job')
+          : null;
+    });
   }
 
   @override
@@ -76,7 +104,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         CustomScrollView(slivers: [
           _buildSliverHeader(job),
           SliverToBoxAdapter(child: _buildInfoGrid(job)),
-          if (isStudent) SliverToBoxAdapter(child: _buildAiAnalysis(job)),
+          if (isStudent)
+            SliverToBoxAdapter(
+                child: _buildAiAnalysis(_aiJob ?? job, _aiLoading, _aiError)),
           SliverToBoxAdapter(
               child: _buildSection('Mô tả công việc', job.description)),
           if (job.requirements.isNotEmpty)
@@ -222,7 +252,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  Widget _buildAiAnalysis(JobModel job) {
+  Widget _buildAiAnalysis(JobModel job, bool isLoading, String? error) {
+    final score = job.matchScore.clamp(0, 100);
+    final matchedSkills = job.matchedSkills;
+    final missingSkills = job.missingSkills;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       padding: const EdgeInsets.all(16),
@@ -240,30 +274,83 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: Colors.white)),
+          const Spacer(),
+          if (isLoading)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
         ]),
         const SizedBox(height: 10),
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('${job.matchScore}%',
-              style: GoogleFonts.sora(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
+        if (error != null) ...[
+          Text(error,
+              style: GoogleFonts.dmSans(
+                  fontSize: 12, color: Colors.white.withOpacity(0.9))),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _loadAiAnalysis,
+            icon: const Icon(Icons.refresh, color: Colors.white, size: 16),
+            label: Text('Thử lại',
+                style: GoogleFonts.dmSans(
+                    color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ] else ...[
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('$score%',
+                style: GoogleFonts.sora(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    height: 1)),
+            const SizedBox(width: 8),
+            Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text('phù hợp với bạn',
+                    style: GoogleFonts.dmSans(
+                        fontSize: 12, color: Colors.white.withOpacity(0.85)))),
+          ]),
+          const SizedBox(height: 8),
+          ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                  value: score / 100,
+                  backgroundColor: Colors.white.withOpacity(0.25),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  minHeight: 6)),
+          if (job.companyFit != null || job.recommendationReason != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              job.companyFit ?? job.recommendationReason!,
+              style: GoogleFonts.dmSans(
+                  fontSize: 12,
                   color: Colors.white,
-                  height: 1)),
-          const SizedBox(width: 8),
-          Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text('phù hợp với bạn',
+                  fontWeight: FontWeight.w700),
+            ),
+            if (job.recommendationReason != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                job.recommendationReason!,
+                style: GoogleFonts.dmSans(
+                    fontSize: 12, color: Colors.white.withOpacity(0.88)),
+              ),
+            ],
+          ],
+          if (matchedSkills.isNotEmpty || missingSkills.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            if (matchedSkills.isNotEmpty)
+              Text('Kỹ năng khớp: ${matchedSkills.take(4).join(', ')}',
                   style: GoogleFonts.dmSans(
-                      fontSize: 12, color: Colors.white.withOpacity(0.85)))),
-        ]),
-        const SizedBox(height: 8),
-        ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-                value: job.matchScore / 100,
-                backgroundColor: Colors.white.withOpacity(0.25),
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                minHeight: 6)),
+                      fontSize: 12, color: Colors.white.withOpacity(0.9))),
+            if (missingSkills.isNotEmpty)
+              Text('Nên bổ sung: ${missingSkills.take(4).join(', ')}',
+                  style: GoogleFonts.dmSans(
+                      fontSize: 12, color: Colors.white.withOpacity(0.9))),
+          ],
+        ],
       ]),
     );
   }

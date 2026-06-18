@@ -167,6 +167,16 @@ class JobsProvider extends ChangeNotifier {
     }
   }
 
+  Future<JobModel?> getJobAnalysis(int id) async {
+    try {
+      final res = await _api.get('/ai/jobs/$id/analysis');
+      return JobModel.fromJson(res.data['job'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      _error = ApiClient.parseError(e);
+      return null;
+    }
+  }
+
   Future<bool> deleteJob(int id) async {
     try {
       await _api.delete('/jobs/$id');
